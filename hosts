@@ -1,0 +1,11 @@
+ansible_server
+
+[samba_server]
+192.168.1.60
+
+
+[samba_client]
+192.168.1.66
+192.168.1.77
+
+

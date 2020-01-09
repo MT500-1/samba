@@ -1,0 +1,86 @@
+---
+
+  - name: Setup Samba server
+    become: yes
+    hosts: samba_server
+    vars:
+      smb_user: 'max'
+      smb_pass: '$1$F27DoscE$/12XMAHnrYZcRpyWX/5ge.'
+
+    tasks:
+
+    - name: Install the Packages
+      yum:
+        name: samba*
+        state: latest
+    
+    - name: Disable Selinux
+      shell: setenforce 0
+    
+    - name: change firewall settings
+      firewalld:
+        service: samba
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Making the Shared Directory
+      file:
+        path=/sambashare
+        state=directory
+        mode=777
+
+    - name: Create a file in the shared directory
+      file:
+        path: /sambashare/test_file
+        state: touch
+        mode: u=rw,g=r,o=r
+
+    - name: Copy /etc/samba/smb.conf
+      template:
+        src=smb.conf.j2
+        dest=/etc/samba/smb.conf
+        owner=root
+        group=root
+        mode=0644
+
+    - name: Create a Samba user 
+      user:
+        name: "{{ smb_user }}"
+
+    - name: Define the user password within Samba
+      shell: "(echo {{ smb_pass }}; echo {{ smb_pass }}) | smbpasswd -s -a {{ smb_user }}"
+
+    - name: Start & Enable smb 
+      service:
+        name: smb
+        state: started   
+        enabled: yes
+
+    - name: Start & Enable nmb
+      service:
+        name: nmb
+        state: started
+        enabled: yes
+
+  - hosts: samba_client
+    become: yes
+    vars: 
+      sambaserver: '192.168.1.60'       
+      smb_user: 'admin'
+   
+    tasks:
+      - name: Install the Packages
+        yum:
+          name: "{{ packages }}"
+          state: latest
+        vars:
+          packages:
+          - samba-client
+          - cifs-utils
+
+      - name: Create the shared Directory and give the permissions
+        file:
+          path=/client
+          state=directory
+          mode=777
